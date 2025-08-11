@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="login.css">
+    <title>Login - Alumni Platform</title>
+
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Welcome Back</h1>
+            <p>Sign in to your account</p>
+        </div>
+
+        <div id="error-message" class="error-message hidden"></div>
+        <div id="success-message" class="success-message hidden"></div>
+
+        <!-- Google Sign In Button Container -->
+        <div id="google-login-btn" class="google-signin-container">
+            <!-- Google will render the button here -->
+        </div>
+
+        <div class="auth-info">
+            <p>Sign in with your Google account to access the DIU Alumni Job Board</p>
+        </div>
+    </div>
+
+    <!-- Google Sign-In SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        // Google OAuth Configuration
+        const GOOGLE_CLIENT_ID = '465236075636-b561a5bbfa1377d857dd21.apps.googleusercontent.com'; // Using same project as Firebase
+        
+        let currentUser = null;
+
+        // Initialize Google Sign-In when the page loads
+        window.onload = function() {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleCredentialResponse,
+                auto_select: false,
+                cancel_on_tap_outside: true
+            });
+
+            // Render the Google Sign-In button
+            google.accounts.id.renderButton(
+                document.getElementById('google-login-btn'),
+                {
+                    theme: 'outline',
+                    size: 'large',
+                    width: '100%',
+                    text: 'continue_with'
+                }
+            );
+
+            // Check if user is already signed in
+            checkExistingSession();
+        };
+
+        // Handle the Google Sign-In response
+        async function handleCredentialResponse(response) {
+            try {
+                showLoading(true);
+                // Decode the JWT token to get user info
+                const userInfo = parseJwt(response.credential);
+                console.log('User info:', userInfo);
+
+                // Create user object similar to Firebase format
+                let user = {
+                    uid: userInfo.sub, // Google's unique user ID
+                    email: userInfo.email,
+                    displayName: userInfo.name,
+                    photoURL: userInfo.picture,
+                    emailVerified: userInfo.email_verified
+                };
+
+                // Prompt for user type if not set
+                let userType = localStorage.getItem('user_type');
+                if (!userType) {
+                    userType = await promptUserType();
+                    localStorage.setItem('user_type', userType);
+                }
+                user.user_type = userType;
+
+                // Store the credential token for API calls
+                localStorage.setItem('google_credential', response.credential);
+                localStorage.setItem('user_info', JSON.stringify(user));
+
+                // REMOVED: syncUserWithBackend - no more PHP backend!
+                // Instead, we'll let Firebase handle user storage
+
+                // Check if there's a redirect URL in the query parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirectUrl = urlParams.get('redirect') || 'jobs.html';
+
+                showSuccess('Login successful! Redirecting...');
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 1500);
+
+            } catch (error) {
+                showLoading(false);
+                console.error('Login error:', error);
+                showError('Failed to sign in: ' + error.message);
+            }
+        }
+
+        // Parse JWT token to get user information
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (error) {
+                console.error('Error parsing JWT:', error);
+                throw new Error('Invalid token format');
+            }
+        }
+
+        // Check if user is already signed in
+        function checkExistingSession() {
+            const storedUser = localStorage.getItem('user_info');
+            const credential = localStorage.getItem('google_credential');
+            
+            if (storedUser && credential) {
+                // User is already signed in, redirect to appropriate page
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirectUrl = urlParams.get('redirect') || 'jobs.html';
+                window.location.href = redirectUrl;
+            }
+        }
+
+        // Show/hide loading state
+        function showLoading(isLoading) {
+            const googleBtn = document.getElementById('google-login-btn');
+            if (isLoading) {
+                googleBtn.innerHTML = '<div style="text-align: center;">Signing in...</div>';
+                googleBtn.style.opacity = '0.7';
+                googleBtn.style.pointerEvents = 'none';
+            }
+        }
+
+        // DOM Elements
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+
+        // Show error message
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            successMessage.classList.add('hidden');
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+        }
+
+        // Hide messages
+        function hideMessages() {
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+        }
+
+        // REMOVED: syncUserWithBackend function - no more PHP!
+
+        // Logout function
+        window.logoutUser = function() {
+            // Clear local storage
+            localStorage.removeItem('google_credential');
+            localStorage.removeItem('user_info');
+            
+            // Redirect to login
+            window.location.href = 'login.html';
+        };
+
+        // Prompt user for type if not set
+        function promptUserType() {
+            return new Promise((resolve) => {
+                // Create modal
+                const modal = document.createElement('div');
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.background = 'rgba(0,0,0,0.5)';
+                modal.style.display = 'flex';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.style.zIndex = '9999';
+
+                const box = document.createElement('div');
+                box.style.background = '#fff';
+                box.style.padding = '2rem';
+                box.style.borderRadius = '8px';
+                box.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                box.style.textAlign = 'center';
+
+                box.innerHTML = `
+                    <h2>Select Your Role</h2>
+                    <p>Please choose your identity for posting and using the platform:</p>
+                    <select id="user-type-select" style="margin: 1rem 0; padding: 0.5rem; font-size: 1rem;">
+                        <option value="">-- Select --</option>
+                        <option value="Student">Student</option>
+                        <option value="Alumni">Alumni</option>
+                        <option value="Faculty">Faculty</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <br>
+                    <button id="user-type-confirm" style="padding: 0.5rem 1.5rem; background: #2563eb; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">Confirm</button>
+                `;
+
+                modal.appendChild(box);
+                document.body.appendChild(modal);
+
+                document.getElementById('user-type-confirm').onclick = function() {
+                    const select = document.getElementById('user-type-select');
+                    const value = select.value;
+                    if (!value) {
+                        select.style.border = '2px solid #f00';
+                        return;
+                    }
+                    document.body.removeChild(modal);
+                    resolve(value);
+                };
+            });
+        }
+        
+        function triggerGoogleSignIn() {
+            google.accounts.id.prompt();
+        }
+    </script>
+</body>
+</html>
