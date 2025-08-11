@@ -186,10 +186,12 @@
         const cancelShare = document.getElementById('cancel-share');
 
         shareBtn.addEventListener('click', () => {
-            if (!currentUser) {
-                alert('Please log in to share an opportunity');
+            const user = localStorage.getItem('user_info');
+            if (!user) {
+                window.location.href = 'login.html?redirect=education.html';
                 return;
             }
+            // Show the modal only if logged in
             modal.style.display = 'block';
         });
 
