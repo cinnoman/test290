@@ -258,10 +258,10 @@
         // Load opportunities from backend
         async function loadOpportunities() {
             showLoading();
-            
             try {
                 const opportunities = await window.FirebaseAPI.getEducationOpportunities();
-                allOpportunities = opportunities; // Store for filtering
+                console.log(opportunities); // Add this line
+                allOpportunities = opportunities;
                 displayOpportunities(opportunities);
             } catch (error) {
                 console.error('Error loading opportunities:', error);
