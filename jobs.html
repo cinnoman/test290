@@ -107,5 +107,16 @@
     <!-- ONLY THESE TWO LINES CHANGED: Load Firebase instead of PHP -->
     <script type="module" src="firebase-simple.js"></script>
     <script src="job.js"></script>
+    <script>
+        document.getElementById('post-job-btn').addEventListener('click', () => {
+            const user = localStorage.getItem('user_info');
+            if (!user) {
+                window.location.href = 'login.html?redirect=jobs.html';
+                return;
+            }
+            // Show the modal only if logged in
+            document.getElementById('post-job-modal').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
